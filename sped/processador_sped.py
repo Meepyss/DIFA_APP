@@ -3,6 +3,7 @@ from db.database import consultar_aliquota
 from sped.difa import calcular_difa
 from planilha.leitor_planilha import buscar_aliquota_na_planilha
 
+
 def extrair_ncm(linha_c170):
     campos = linha_c170.split('|')
     return campos[12]
@@ -94,37 +95,61 @@ def cfop_uso_consumo(linha_c170):
     return cfop in ['1556', '2556']
 
 def processar_arquivo_sped(caminho_arquivo_sped, caminho_novo_arquivo_sped, planilha):
+    """
+    Processa o arquivo SPED e verifica produtos sujeitos ao DIFAL.
+    """
     notas_alteradas = {}
+    encontrou_difal = False  # Variável para verificar se encontrou algum produto com DIFAL
 
     with open(caminho_arquivo_sped, 'r') as arquivo_sped, open(caminho_novo_arquivo_sped, 'w') as novo_arquivo:
         for linha in arquivo_sped:
             if linha.startswith('C170'):
+                # Extrair dados do registro C170
                 ncm = extrair_ncm(linha)
+                cfop = linha.split('|')[11]  # Posição do CFOP no registro
                 icms_aliquota = consultar_aliquota(ncm)
-
+                
+                # Debugging: Log de cada linha C170 processada
+                print(f"Processando Nota com NCM: {ncm}, CFOP: {cfop}, Alíquota ICMS: {icms_aliquota}")
+                
                 if cfop_uso_consumo(linha):
+                    print(f"CFOP {cfop} é de uso e consumo (1556 ou 2556)")
+                    
                     if not icms_aliquota:
+                        # Buscar na planilha caso não haja alíquota no arquivo SPED
                         icms_aliquota = buscar_aliquota_na_planilha(linha, planilha)
-
+                        print(f"Alíquota ICMS após busca na planilha: {icms_aliquota}")
+                    
                     if icms_aliquota and icms_aliquota < 17:
+                        print(f"Produto sujeito ao DIFAL: NCM {ncm} com Alíquota {icms_aliquota}")
+                        encontrou_difal = True
+                        
+                        # Extrair a base de cálculo e calcular o DIFAL
                         base_calculo_icms, aliquota = extrair_base_calculo_icms(linha)
                         difa = calcular_difa(base_calculo_icms, icms_aliquota)
                         linha_modificada = alterar_registro_c197(linha, difa)
                         
                         nf = extrair_identificacao_nota(linha)
                         
-                        # Registre a nota fiscal alterada e o valor do DIFAL
+                        # Armazenar as notas alteradas
                         notas_alteradas[nf] = {
                             'nf': nf,
                             'difa': difa,
-                            'registros': ['C170', 'C197']  # Registros alterados
+                            'registros': ['C170', 'C197']
                         }
                         
                         novo_arquivo.write(linha_modificada + '\n')
                     else:
                         novo_arquivo.write(linha + '\n')
+                else:
+                    novo_arquivo.write(linha + '\n')
             else:
                 novo_arquivo.write(linha + '\n')
+
+    if encontrou_difal:
+        print("Produtos sujeitos ao DIFAL foram encontrados.")
+    else:
+        print("Nenhum produto sujeito ao DIFAL foi encontrado.")
 
     # Exibe e gera o relatório das notas alteradas
     gerar_relatorio_alteracoes(notas_alteradas)
@@ -134,3 +159,4 @@ def processar_arquivo_sped(caminho_arquivo_sped, caminho_novo_arquivo_sped, plan
 
     # Gera o arquivo SPED final com as alterações
     gerar_arquivo_sped_alterado(caminho_novo_arquivo_sped, notas_alteradas, 'sped_arquivo_final.txt')
+

@@ -1,6 +1,8 @@
 from sped.processador_sped import processar_arquivo_sped
 from planilha.leitor_planilha import carregar_planilha
 from db.carregar_html import carregar_dados_html
+from interface.interface_usuario import *
+
 
 # Caminho dos arquivos de entrada e saída
 caminho_arquivo_sped = 'data/arquivo_sped.txt'

@@ -27,7 +27,7 @@ def carregar_dados_html(caminho_html):
             if len(colunas) >= 3:
                 aliquota = colunas[0].text.strip().replace('%', '').strip()
                 ncm = colunas[1].text.strip()
-                descricao = colunas[2].text.strip()[:255]  # Limitar a descrição a 255 caracteres
+                descricao = colunas[2].text.strip()[:1000]  # Limitar a descrição a 255 caracteres
 
 
                 if ncm != '-':  # Ignora NCMs que são apenas "-"
